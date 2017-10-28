@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"reflect"
 
 	"github.com/go-xorm/core"
 	"github.com/grafana/grafana/pkg/components/null"
@@ -181,6 +182,17 @@ func (e PostgresQueryEndpoint) transformToTimeSeries(query *tsdb.Query, rows *co
 		}
 
 		switch columnValue := values[timeIndex].(type) {
+		case string:
+			i, err := strconv.Atoi(columnValue)
+			if err != nil {
+				return err
+			}
+
+			timestamp = float64(i * 1000)
+		case int:
+			timestamp = float64(columnValue * 1000)
+		case int32:
+			timestamp = float64(columnValue * 1000)
 		case int64:
 			timestamp = float64(columnValue * 1000)
 		case float64:
@@ -188,7 +200,7 @@ func (e PostgresQueryEndpoint) transformToTimeSeries(query *tsdb.Query, rows *co
 		case time.Time:
 			timestamp = float64(columnValue.Unix() * 1000)
 		default:
-			return fmt.Errorf("Invalid type for column time, must be of type timestamp or unix timestamp")
+			return fmt.Errorf("Invalid type for column time, must be of type timestamp or unix timestamp. Value is: %s. Type: %s", columnValue,reflect.TypeOf(values[timeIndex]))
 		}
 
 		if metricIndex >= 0 {
@@ -205,6 +217,13 @@ func (e PostgresQueryEndpoint) transformToTimeSeries(query *tsdb.Query, rows *co
 			}
 
 			switch columnValue := values[i].(type) {
+			case string:
+				i, err := strconv.ParseFloat(columnValue, 32)
+				if err != nil {
+					return err
+				}
+
+				value = null.FloatFrom(i)
 			case int64:
 				value = null.FloatFrom(float64(columnValue))
 			case float64:
